@@ -191,4 +191,3 @@ ALTER TABLE IF EXIST exampleDb.exampleScm.exampleTable
   SET MASKING POLICY emailDemasking;
 
 ```
-
