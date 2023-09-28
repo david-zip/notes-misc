@@ -2,16 +2,16 @@
 
 Dynamic data masking is a column-level security feature which allows you to alter data for anonymity using predefined masking policies. Column-level security is a type of masking policy that is applied to all values of a column within a table or view.
 
-Masking policies are schema-level objects whihc can protect sensitive data from being viewed by unautorized roles. Data is not being modified, but rather hidden from the user. There are vaious forms of masking:
+Masking policies are schema-level objects which can protect sensitive data from being viewed by unautorized roles. Data is not being modified, but rather hidden from the user. There are vaious forms of masking:
 
 - Masked
 - Partially masked
 - Obfuscated
 - Tokenized
 
-In Snowflake, as masking policies are schema-level objects, databases and schemas must be defined first in order to create or apply a masking policy. Masking policies include a condition and function to transform the data for masking. 
+In Snowflake, databases and schemas must be defined first in order to create or apply a masking policy. Masking policies include a condition and function to transform the data for masking. 
 
-Another form of data masking is known as **Static Data Masking**. This differs from dyanmic data masking as data will always be censored regardless of the party querying it. In dyanmic data masking, the amount of data censor is dependant on the role.
+Another form of data masking is known as **Static Data Masking**. This differs from dyanmic data masking as data will always be censored regardless of the party querying it. In dyanmic data masking, the amount of data censored is dependant on the role calling the query.
 
 There are various benefits to dynamic data masking:
 
@@ -24,7 +24,9 @@ There are various benefits to dynamic data masking:
 ## Dynamic Masking Main Clauses (refine)
 
 `CREATE` - Creates the new masking policy in a schema
+
 `APPLY` - Allows the SET and UNSET operations for a masking policy on a column
+
 `OWNERSHIP` - Provides full control over the masking policy (only one role can hold this privilege)
 
 ## Masking Policy Implementation
@@ -41,7 +43,7 @@ CREATE MASKING POLICY columnMask AS
     END;
 ```
 
-There are multiple ways one write the masking code. The following example will showcase three types of possible options (there are more than just the following three):
+There are multiple ways one can write the masking code. The following examples will showcase three possible masking strategies:
 
 1. Mask only desired string before seperator (example will use email and show only the domain)
 
@@ -55,10 +57,10 @@ REGEXP_REPLACE(val, '.+\@', '*****@')
 SUBSTR(val, 1, 3) || '***'
 ```
 
-3. Mask everything but the last three characters
+1. Mask only the first three characters
 
 ```sql
-'***' || SUBSTR(VAL, -9, 9)
+'***' || SUBSTR(val, -9, 9)
 ```
 
 Once the masking policy has been created, it can be added onto the table via the following code:
@@ -104,7 +106,7 @@ RETURNS string ->
   END;
 ```
 
-Applying the mask is done similar to dynamic data masking.
+The mask can be applied to the table as shown below:
 
 ```sql
 ALTER TABLE IF EXIST exampleDb.exampleScm.exampleTable
@@ -115,7 +117,9 @@ ALTER TABLE IF EXIST exampleDb.exampleScm.exampleTable
 
 ### Hash Data Masking
 
-One can return a hash value to mask columns for unauthorized users. One drawback of hash masking is that the results may cause collisions (check what this is). The two functions are synonymous.
+One can return a hash value to mask columns for unauthorized users. One drawback of hash masking is that the results may cause collisions (check what this is). 
+
+The following two functions are synonymous.
 
 ```sql
 SHA2(dataColumn, digest_size)
@@ -123,7 +127,7 @@ SHA2(dataColumn, digest_size)
 SHA2_HEX(dataColumn, digest_size)
 ```
 
-`digest_size` is an optional parameter which specifies the type of `SHA-2` function will be used to encrypt the string. Possible inputs are listed below
+`digest_size` is an optional parameter which specifies the type of `SHA-2` function will be used to encrypt the string. Possible inputs are listed below:
 
 - 224 = `SHA-224`
 - 256 = `SHA-256` (default)
@@ -142,7 +146,7 @@ The following steps will demonstrate how to integrate a custom process for exter
 
 ##### 1. Create an external function
 
-The external function can be created in Snowflake and configured to communicate with the desired cloud provider. (more info on this or create notes for external tokenization)
+The external function can be created in Snowflake and configured to communicate with the desired cloud provider.
 
 ##### 2. Grant masking policy privilegdes to custom role
 
@@ -152,7 +156,7 @@ Privilege | Descrption
 --------- | --------
 `CREATE MASKING POLICY` | Controls who can create masking policies
 `APPLY MASKING POLICY`| Controls who can [un]set masking policies
-`APPLY ON MASKING POLICY`| (Optional) Decentralizes policy privilege to [un]set masking policies on columns to the object owners (does this mean data owner?)
+`APPLY ON MASKING POLICY`| (Optional) Decentralizes policy privilege to [un]set masking policies on columns to the object owners
 
 Example of providing user role masking policy privileges:
 
