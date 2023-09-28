@@ -2,33 +2,32 @@
 
 ## What is Dynamic Data Masking?
 
-Dynamic data masking is a column-level security feature which allows you to alter data for anonymity using predefined masking policies.
+Dynamic data masking is a column-level security feature which allows you to alter data for anonymity using predefined masking policies. Column-level security is a type of masking policy that is applied to all values of a column within a table or view.
+
+Masking policies are schema-level objects whihc can protect sensitive data from being viewed by unautorized roles. Data is not being modified, but rather hidden from the user. There are vaious forms of masking:
+
+- Masked
+- Partially masked
+- Obfuscated
+- Tokenized
 
 In Snowflake, as masking policies are schema-level objects, databases and schemas must be defined first in order to create or apply a masking policy.
 
-Another form of data masking is known as **Static Data Masking**. This differs from dyanmic data masking as data will always be censored regardless of the party querying it. In dyanmic data masking, the amount of data censor is dependant on the role/
+Another form of data masking is known as **Static Data Masking**. This differs from dyanmic data masking as data will always be censored regardless of the party querying it. In dyanmic data masking, the amount of data censor is dependant on the role.
 
 There are various benefits to dynamic data masking:
 
-- Ease of use
-  - Can apply a single policy to numerous rows with ease
-  - Highly reusable
-
-- Data administration and segragation of duties
-  - Security or privacy officer will decided what to protect, not the object (data) owner
-  - Easy to manage and support centralized and decentralized administration models
-
-- Data authorization and governance
-  - Contextual data access by role
-  - Supports data governance as implemented by security or privacy officers and can prohibit privileged users with the ACCOUNTADMIN or SECURITYADMIN role from unnecessarily viewing data
-
-- Data sharing
-  - Easily mask data prior to sharing it
-
-- Change management
-  - Easily change masking policy content without having to reapply the masking policy to thousands of columns
+- New masking policies can be made with ease and without any overhead of historic loading of data
+- Policies can be written once and be applied to various columns across databases and schemas
+- Masking policies are easy to manage and support centralized and decentralized administration models
+- Data can be easily masked before being shared
+- Easily change masking policy with having to reapply a new policy on multiple columns
 
 ## Dynamic Masking Main Clauses
+
+{::comment}
+  refine this
+{:/comment}
 
 `CREATE` - Creates the new masking policy in a schema
 `APPLY` - Allows the SET and UNSET operations for a masking policy on a column
@@ -72,7 +71,7 @@ Once the masking policy has been created, it can be added onto the table via the
 
 ```sql
 ALTER TABLE IF EXIST exampleDb.exampleScm.exampleTable 
-  MODIFY COLUMN columnNAME 
+  MODIFY COLUMN columnName
   SET MASKING POLICY columnMask;
 ```
 
@@ -82,7 +81,7 @@ Masking policies can be removed from a table using the following code:
 
 ```sql
 ALTER TABLE IF EXIST exampleDb.exampleScm.exampleTable 
-  MODIFY COLUMN columnNAME 
+  MODIFY COLUMN columnName
   UNSET MASKING POLICY;
 ```
 
