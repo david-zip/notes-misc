@@ -71,7 +71,9 @@ SUBSTR(val, 1, 3) || '***'
 Once the masking policy has been created, it can be added onto the table via the following code:
 
 ```sql
-ALTER TABLE IF EXIST tableName MODIFY COLUMN columnNAME SET MASKING POLICY columnMask;
+ALTER TABLE IF EXIST exampleDb.exampleScm.exampleTable 
+  MODIFY COLUMN columnNAME 
+  SET MASKING POLICY columnMask;
 ```
 
 ### Remove Masking Policy
@@ -79,7 +81,9 @@ ALTER TABLE IF EXIST tableName MODIFY COLUMN columnNAME SET MASKING POLICY colum
 Masking policies can be removed from a table using the following code:
 
 ```sql
-ALTER TABLE IF EXIST tableName MODIFY COLUMN columnNAME UNSET MASKING POLICY;
+ALTER TABLE IF EXIST exampleDb.exampleScm.exampleTable 
+  MODIFY COLUMN columnNAME 
+  UNSET MASKING POLICY;
 ```
 
 Once the masking policy has been removed, it can be deleted as shown below:
@@ -88,17 +92,47 @@ Once the masking policy has been removed, it can be deleted as shown below:
 DROP MASKING POLICY columnMask;
 ```
 
-## Conditinal Masking Policy
+## Alternative Masking Methods
+
+### Conditinal Masking Policy
 
 There are scenarios in which data masking should be dependant on other column values instead of the user role. This is known as **Conditional Data Masking** and Snowflakes supports the implementation of it.
 
 THe following code will demonstrate how a user can showcase specific data whilst hiding everything else.
 
 ```sql
-CREATE OR REPLACE MASKING POLICY exampleDb.exampleScm.exampleTable AS 
+CREATE OR REPLACE MASKING POLICY maskColumn AS 
 (dataColumn string, visibility boolean)
 RETURNS string ->
   CASE
     WHEN visibility = true
       THEN dataColumn
+    ELSE '*****'
+  END;
 ```
+
+Applying the mask is done similar to dynamic data masking.
+
+```sql
+ALTER TABLE IF EXIST exampleDb.exampleScm.exampleTable
+  MODIFY COLUMN dataColumn
+  SET MASKING POLICY maskColumn
+  USING (dataColumn, visibility);
+```
+
+### Hash Data Masking
+
+One can return a hash value to mask columns for unauthorized users. One drawback of hash masking is that the results may cause collisions (check what this is). The two functions are synonymous.
+
+```sql
+SHA2(dataColumn, digest_size)
+
+SHA2_HEX(dataColumn, digest_size)
+```
+
+`digest_size` is an optional parameter which specifies the type of `SHA-2` function will be used to encrypt the string. Possible inputs are listed below
+
+- 224 = `SHA-224`
+- 256 = `SHA-256` (default)
+- 384 = `SHA-384`
+- 512 = `SHA-512`
