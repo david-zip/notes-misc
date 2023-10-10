@@ -6,7 +6,7 @@ Deployment strategies are methodologies to replaces older versions of applicatio
 
 Blue/Green Deployment (also known as Red/Black Deployment) strategy is a deployment strategy in which two separate, yet identical environments are created and deployed to the user. The blue (current) environment is the current version of the application whilst the green (new) environment is the new application version. Users will be gradually relocated onto the green environment as other users will still be using the blue environment. 
 
-A benefit of Blue/Green Deployment is that as the blue environment remains in deployment, if the green environment encounters any step-backs or is pulled from production, the blue environment will be on standby to completely replace the green environment. This results in reduced deployment risk as it simplifies the rollback if deployment fails. Another benefit is that it reduces the downtime during application updates, further mitigating the risk surrounding downtime and rollback functionality.
+One benefit of Blue/Green Deployment is that as the blue environment remains in deployment, if the green environment encounters any step-backs or is pulled from production, the blue environment will be on standby to completely replace the green environment. This results in reduced deployment risk as it simplifies the rollback if deployment fails. Another benefit is that it reduces the downtime during application updates, further mitigating the risk surrounding downtime and rollback functionality.
 
 ## A/B Deployment
 

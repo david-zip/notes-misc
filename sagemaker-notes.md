@@ -279,7 +279,7 @@ step_outputs = pipeline_session.sagemaker_client.describe_training_job(TrainingJ
 
 ### Pipeline Parameters
 
-One can parameterise pipeline definitions using parameters. Parameters will have default vales which can be overridden by specifying parameter values when starting pipeline execution. All parameters can be found in the `sagemaker.workflow.parameters` package.
+One can parameterise pipeline definitions using pipeline parameters. Parameters will have default vales which can be overridden by specifying parameter values when starting pipeline execution. All parameters can be found in the `sagemaker.workflow.parameters` package.
 
 #### Parameters:
 ```py
@@ -324,7 +324,42 @@ Boolean parameter for pipeline
 - **name (string)**: name of parameter
 - **default_value (boolean)**: default value for parameter which can be overridden (default: `None`)
 
-### Step-by-Step Guide to Creating a SageMaker CI/CD Pipeline
+## SageMaker Model Monitoring
+
+After a model has been trained and deployed, it must be continously monitored to ensure it maintains production criteria and gets re-trained if it does not.
+
+Amazon SageMaker Model Monitor allows one to log the input, output, and metadata of every invocation of a model after deployment. This enables the user to constantly analyse and evaluate whether the model is still fit for deployment.
+
+To capture real-time inference data for monitoring model data quality, `DataCaptureConfig` must be defined as a new capture option when the model is deployed to the endpoint.
+
+```py
+sagemaker.model_monitor.data_capture_config.DataCaptureConfig(
+    enable_capture=bool,
+    sampling_percentage=int,
+    destination_s3_uri='str',
+    kms_key_id='str',
+    capture_options=list['str'],
+    csv_content_types=list['str'],
+    json_content_types=list['str'],
+    sagemaker_session=class 
+)
+```
+where:
+- **enable_decay (bool)**: whether data is captured or not
+- **sampling_percentage (int)**: Percentage of data to sample between 0 to 100 (default: `20`)
+- **destination_s3_uri (string)**: output bucket for data (default: `s3//<default-session-bucket>/model-monitor/data-capture`)
+- **kms_key_id (string)**: kms key used to write into s3 bucket (default: `None`)
+- **capture_options (list[string])**: denotes whether to capture `REQUEST`/input and/or `RESPONSE`/output data (default: `None`)
+- **csv_content_types (list[string])**: data type of csv content (default: `["text/csv"]`)
+- **json_content_types (list[string])**: data type of json content (default: `["application/json"]`)
+- **sagemaker_session (`sagemaker.session.Session`)**: Session object which manages interactions with the Amazon SageMaker API (default: `None`)
+
+### Model Decay
+### Confusion Matrix
+### Threshold
+### Re-Training
+
+## Step-by-Step Guide to Creating a SageMaker CI/CD Pipeline
 
 link: https://www.edlitera.com/en/blog/posts/aws-sagemaker-ci-cd-pipelines#mcetoc_1g2b6icbj37
 
