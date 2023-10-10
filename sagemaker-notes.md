@@ -328,9 +328,11 @@ Boolean parameter for pipeline
 
 After a model has been trained and deployed, it must be continously monitored to ensure it maintains production criteria and gets re-trained if it does not.
 
-Amazon SageMaker Model Monitor allows one to log the input, output, and metadata of every invocation of a model after deployment. This enables the user to constantly analyse and evaluate whether the model is still fit for deployment.
+Amazon SageMaker Model Monitor allows one to log the input, output, and metadata of every invocation of a model after deployment. This enables the user to constantly analyse and evaluate whether the model is still fit for deployment. Amazon CloudWatch Logs collects all monitoring logs and will notify the user when set thresholds are triggered. Model monitoring can be conducted using real-time endpoints or in batch using a scheduler.
 
-To capture real-time inference data for monitoring model data quality, `DataCaptureConfig` must be defined as a new capture option when the model is deployed to the endpoint.
+To monitor the inputs, endpoints, and inference outputs from the deployed model, users can utilise a feature known as Data Capture. Data Capture can be implemented either in real-time or batch using AWS SDK `boto3`. 
+
+To capture real-time inference data for monitoring model data quality, `DataCaptureConfig` must be defined as a new capture option when the model is deployed to the endpoint. This instance can be passed as an object to the `DataCaptureConfig` paramter in `Model.deploy()`. 
 
 ```py
 sagemaker.model_monitor.data_capture_config.DataCaptureConfig(
@@ -358,6 +360,10 @@ where:
 ### Confusion Matrix
 ### Threshold
 ### Re-Training
+
+## Inference
+
+Inference is the process of feeding live datapoints into a machine learning model to calculate an output such as a single numerical score.
 
 ## Step-by-Step Guide to Creating a SageMaker CI/CD Pipeline
 
