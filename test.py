@@ -36,18 +36,19 @@ from sagemaker.workflow.model_step import ModelStep
 from sagemaker.model import Model
 from sagemaker.workflow.pipeline_context import PipelineSession
 
-BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+BASE_DIR = os.path.abspath("")
 
 def define_pipeline(
-    region,
-    sagemaker_project_name=None,
-    role=None,
-    default_bucket=None,
-    model_package_group_name="HousePricePackageGroup",
-    pipeline_name="HousePricePipeline",
-    base_job_prefix="HousePrice",
-    processing_instance_type="ml.m5.xlarge",
-    training_instance_type="ml.m5.xlarge",
+    region: str,
+    sagemaker_project_name: str=None,
+    role: str=None,
+    model_package_group_name: str=None,
+    pipeline_name: str=None,
+    base_job_prefix: str=None,
+    default_bucket: str=None,
+    processing_instance_type: str="ml.m5.xlarge",
+    training_instance_type: str="ml.m5.xlarge",
+    processing_instance_count: int=1
     
 ):
     
@@ -61,33 +62,26 @@ def define_pipeline(
                             sagemaker_runtime_client=runtime_client,
                             default_bucket=default_bucket
                         )
-    
     pipeline_session = PipelineSession(
         boto_session=boto_session,
-        sagemaker_client=sagemaker_client,
-        default_bucket=default_bucket
+        sagemaker_client=sagemaker_client
     )
 
     # get execution role for sagemaker
     if role is None:
         role = sagemaker.session.get_execution_role(sagemaker_session)
     
-    ##############################################################################
     # define default parameters for pipeline execution
-    processing_instance_count = ParameterInteger(
-        name="ProcessingInstanceCount", 
-        default_value=1
+    '''
+    input_data = ParameterString(
+        name="InputDataURI",
+        default_value="s3://sagemaker-project-p-li0pqhei7lcj/housing-price-prediction-v2/data/Housing.csv"
     )
-
+    '''
     model_approval_status = ParameterString(
-        name="ModelApprovalStatus", 
-        default_value="PendingManualApproval"
+        name="ModelApprovalStatus", default_value="PendingManualApproval"
     )
     
-    input_data = ParameterString(
-        name="InputDataUrl",
-        default_value="s3://sagemaker-project-p-pvdjcw8fuq4v/dataset/Housing.csv",
-    )
     ##############################################################################
     # preprocessing data (feature engineering)
     print("Preprocessing start")
@@ -96,41 +90,37 @@ def define_pipeline(
         framework_version="0.23-1",
         instance_type=processing_instance_type,
         instance_count=processing_instance_count,
-        base_job_name=f"{base_job_prefix}/sklearn-house-preprocess",
-        sagemaker_session=pipeline_session,
+        base_job_name=f"sklearn-house-preprocess",
+        sagemaker_session=sagemaker_session,
         role=role
     )
 
     step_args = sklearn_processor.run(
         outputs=[
-            ProcessingOutput(
-                output_name="train",
-                source="/opt/ml/processing/train"
-            ),
-            ProcessingOutput(
-                output_name="validation",
-                source="/opt/ml/processing/validation"
-            ),
-            ProcessingOutput(
-                output_name="test",
-                source="/opt/ml/processing/test"
-            )
+            ProcessingOutput(output_name="train",
+                                source="/opt/ml/processing/train"
+                            ),
+            ProcessingOutput(output_name="validation",
+                                source="/opt/ml/processing/validation"
+                            ),
+            ProcessingOutput(output_name="test",
+                                source="/opt/ml/processing/test"
+                            )
         ],
         code=os.path.join(BASE_DIR, "preprocess.py"),
-        arguments=["--input-data", input_data]
+        arguments=["--input-data", "s3://sagemaker-project-p-li0pqhei7lcj/housing-price-prediction-v2/data/Housing.csv"]
     )
 
     step_process = ProcessingStep(
         name="PreprocessingHousingPriceData",
+        processor=sklearn_processor,
         step_args=step_args
     )
-
     print("Preprocessing end")
-
     ##############################################################################
     # training step for training model
     print("Training start")
-    model_path = f"s3://{sagemaker_session.default_bucket()}/{base_job_prefix}/HousePriceTrain"
+    model_path = f"s3://sagemaker-project-p-li0pqhei7lcj/housing-price-prediction-v2/model/"
 
     # initialise XGBoost training algorithm
     image_uri = sagemaker.image_uris.retrieve(
@@ -146,7 +136,7 @@ def define_pipeline(
         instance_type=training_instance_type,
         instance_count=1,
         output_path=model_path,
-        base_job_name=f"{base_job_prefix}/house-price-train",
+        base_job_name=f"house-price-train",
         sagemaker_session=pipeline_session,
         role=role
     )
@@ -156,7 +146,7 @@ def define_pipeline(
         num_round=50,
         max_depth=5,
         eta=0.2,
-        gamma=4,
+        ganmma=4,
         min_child_weight=6,
         subsample=0.7,
         silent=0
@@ -193,7 +183,7 @@ def define_pipeline(
         command=["python3"],
         instance_type=processing_instance_type,
         instance_count=1,
-        base_job_name=f"{base_job_prefix}/script-housing-price-eval",
+        base_job_name=f"script-housing-price-eval",
         sagemaker_session=pipeline_session,
         role=role
     )
@@ -207,7 +197,7 @@ def define_pipeline(
             ProcessingInput(
                 source=step_process.properties.ProcessingOutputConfig.Outputs[
                     "test"
-                ].S3Output.S3Uri,
+                ].S3output.S3Uri,
                 destination="/opt/ml/processing/test"
             )
         ],
@@ -221,7 +211,7 @@ def define_pipeline(
     )
     
     evaluation_report = PropertyFile(
-        name="HousePriceEvaluationReport",
+        name="EvaluationReport",
         output_name="evaluation",
         path="evaluation.json"
     )
@@ -239,7 +229,7 @@ def define_pipeline(
     model_metrics = ModelMetrics(
         model_statistics=MetricsSource(
             s3_uri="{}/evaluation.json".format(
-                step_eval.arguments["ProcessingOutputConfig"]["Outputs"][0]["S3Output"]["S3Uri"]
+                step_eval.arguments["ProcessingOutputConfig"]["Outputs]"][0]["S3Output"]["S3Uri"]
             ),
             content_type="application/json"
         )
@@ -256,7 +246,7 @@ def define_pipeline(
         content_types=["text/csv"],
         response_types=["text/csv"],
         inference_instances=["ml.t2.medium", "ml.m5.large"],
-        transform_instances=["ml.m5.large"],
+        transform_instance=["ml.m5.large"],
         model_package_group_name=model_package_group_name,
         approval_status=model_approval_status,
         model_metrics=model_metrics
@@ -266,9 +256,8 @@ def define_pipeline(
         name="RegisterHousePriceModel",
         step_args=step_args
     )
-    
     print("Model register end")
-    ################################################################################
+    ##################################################################################
     # condition step for evaluating whether the model should be registered
     cond_lte = ConditionLessThanOrEqualTo(
         left=JsonGet(
@@ -282,21 +271,23 @@ def define_pipeline(
         name="CheckMSEHousePriceEvaluation",
         conditions=[cond_lte],
         if_steps=[step_register],
-        else_steps=[]
+        else_step=[]
     )
-
-    ###############################################################################
+    
+    ###################################################################################
     # initialise pipeline instance
     pipeline = Pipeline(
         name=pipeline_name,
         parameters=[
-            processing_instance_type,
-            processing_instance_count,
-            training_instance_type,
-            model_approval_status,
-            input_data,
+            model_approval_status
         ],
-        steps=[step_process, step_train, step_eval, step_cond],
-        sagemaker_session=pipeline_session,
+        steps=[
+            step_process,
+            step_train,
+            step_eval,
+            step_cond
+        ],
+        sagemaker_session=pipeline_session
     )
+    
     return pipeline
