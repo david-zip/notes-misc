@@ -1,18 +1,7 @@
-"""Example workflow pipeline script for abalone pipeline.
-
-                                               . -ModelStep
-                                              .
-    Process-> Train -> Evaluate -> Condition .
-                                              .
-                                               . -(stop)
-
-Implements a get_pipeline(**kwargs) method.
-"""
+# import modules
 import os
-
 import boto3
 import sagemaker
-import sagemaker.session
 
 from sagemaker.estimator import Estimator
 from sagemaker.inputs import TrainingInput
@@ -47,143 +36,103 @@ from sagemaker.workflow.model_step import ModelStep
 from sagemaker.model import Model
 from sagemaker.workflow.pipeline_context import PipelineSession
 
-
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 
-def get_sagemaker_client(region):
-     """Gets the sagemaker client.
-
-        Args:
-            region: the aws region to start the session
-            default_bucket: the bucket to use for storing the artifacts
-
-        Returns:
-            `sagemaker.session.Session instance
-        """
-     boto_session = boto3.Session(region_name=region)
-     sagemaker_client = boto_session.client("sagemaker")
-     return sagemaker_client
-
-
-def get_session(region, default_bucket):
-    """Gets the sagemaker session based on the region.
-
-    Args:
-        region: the aws region to start the session
-        default_bucket: the bucket to use for storing the artifacts
-
-    Returns:
-        `sagemaker.session.Session instance
-    """
-
-    boto_session = boto3.Session(region_name=region)
-
-    sagemaker_client = boto_session.client("sagemaker")
-    runtime_client = boto_session.client("sagemaker-runtime")
-    return sagemaker.session.Session(
-        boto_session=boto_session,
-        sagemaker_client=sagemaker_client,
-        sagemaker_runtime_client=runtime_client,
-        default_bucket=default_bucket,
-    )
-
-def get_pipeline_session(region, default_bucket):
-    """Gets the pipeline session based on the region.
-
-    Args:
-        region: the aws region to start the session
-        default_bucket: the bucket to use for storing the artifacts
-
-    Returns:
-        PipelineSession instance
-    """
-
-    boto_session = boto3.Session(region_name=region)
-    sagemaker_client = boto_session.client("sagemaker")
-
-    return PipelineSession(
-        boto_session=boto_session,
-        sagemaker_client=sagemaker_client,
-        default_bucket=default_bucket,
-    )
-
-#################### delete later ###########################################
-def get_pipeline_custom_tags(new_tags, region, sagemaker_project_name=None):
-    try:
-        sm_client = get_sagemaker_client(region)
-        response = sm_client.describe_project(ProjectName=sagemaker_project_name)
-        sagemaker_project_arn = response["ProjectArn"]
-        response = sm_client.list_tags(
-            ResourceArn=sagemaker_project_arn)
-        project_tags = response["Tags"]
-        for project_tag in project_tags:
-            new_tags.append(project_tag)
-    except Exception as e:
-        print(f"Error getting project tags: {e}")
-    return new_tags
-#################### delete later ###########################################
-
-def get_pipeline(
+def define_pipeline(
     region,
     sagemaker_project_name=None,
     role=None,
     default_bucket=None,
-    model_package_group_name="HousingPricePackageGroup",
-    pipeline_name="HousingPricePipeline",
-    base_job_prefix="HousingPrice",
+    model_package_group_name="HousePricePackageGroup",
+    pipeline_name="HousePricePipeline",
+    base_job_prefix="HousePrice",
     processing_instance_type="ml.m5.xlarge",
     training_instance_type="ml.m5.xlarge",
+    
 ):
-    """Gets a SageMaker ML Pipeline instance working with on housing price data.
+    
+    # initialise boto3 and sagemaker clients and sessions
+    boto_session = boto3.Session(region_name=region)
+    sagemaker_client = boto_session.client("sagemaker")
+    runtime_client = boto_session.client("sagemaker-runtime")
+    sagemaker_session = sagemaker.session.Session(
+                            boto_session=boto_session,
+                            sagemaker_client=sagemaker_client,
+                            sagemaker_runtime_client=runtime_client,
+                            default_bucket=default_bucket
+                        )
+    
+    pipeline_session = PipelineSession(
+        boto_session=boto_session,
+        sagemaker_client=sagemaker_client,
+        default_bucket=default_bucket
+    )
 
-    Args:
-        region: AWS region to create and run the pipeline.
-        role: IAM role to create and run steps and pipeline.
-        default_bucket: the bucket to use for storing the artifacts
-
-    Returns:
-        an instance of a pipeline
-    """
-    sagemaker_session = get_session(region, default_bucket)
+    # get execution role for sagemaker
     if role is None:
         role = sagemaker.session.get_execution_role(sagemaker_session)
-
-    pipeline_session = get_pipeline_session(region, default_bucket)
-
-    # parameters for pipeline execution
-    processing_instance_count = ParameterInteger(name="ProcessingInstanceCount", default_value=1)
-    model_approval_status = ParameterString(
-        name="ModelApprovalStatus", default_value="PendingManualApproval"
+    
+    ##############################################################################
+    # define default parameters for pipeline execution
+    processing_instance_count = ParameterInteger(
+        name="ProcessingInstanceCount", 
+        default_value=1
     )
+
+    model_approval_status = ParameterString(
+        name="ModelApprovalStatus", 
+        default_value="PendingManualApproval"
+    )
+    
     input_data = ParameterString(
         name="InputDataUrl",
-        default_value="house-price-prediction-p-li0pqhei7lcj/sagemaker-house-price-prediction-p-li0pqhei7lcj-modelbuild/pipelines/abalone/data/Housing.csv",
+        default_value="s3://sagemaker-project-p-pvdjcw8fuq4v/dataset/Housing.csv",
     )
-
-    # processing step for feature engineering
+    ##############################################################################
+    # preprocessing data (feature engineering)
+    print("Preprocessing start")
+    # initialise SKLearnProcessor
     sklearn_processor = SKLearnProcessor(
         framework_version="0.23-1",
         instance_type=processing_instance_type,
         instance_count=processing_instance_count,
-        base_job_name=f"{base_job_prefix}/sklearn-housing-price-preprocess",
+        base_job_name=f"{base_job_prefix}/sklearn-house-preprocess",
         sagemaker_session=pipeline_session,
-        role=role,
-    )
-    step_args = sklearn_processor.run(
-        outputs=[
-            ProcessingOutput(output_name="train", source="house-price-prediction-p-li0pqhei7lcj/sagemaker-house-price-prediction-p-li0pqhei7lcj-modelbuild/pipelines/abalone/data/train"),
-            ProcessingOutput(output_name="test", source="house-price-prediction-p-li0pqhei7lcj/sagemaker-house-price-prediction-p-li0pqhei7lcj-modelbuild/pipelines/abalone/data/test"),
-        ],
-        code=os.path.join(BASE_DIR, "preprocess.py"),
-        arguments=["--input-data", input_data],
-    )
-    step_process = ProcessingStep(
-        name="PreprocessHousingPriceData",
-        step_args=step_args,
+        role=role
     )
 
-    # training step for generating model artifacts
-    model_path = f"s3://{sagemaker_session.default_bucket()}/{base_job_prefix}/AbaloneTrain"
+    step_args = sklearn_processor.run(
+        outputs=[
+            ProcessingOutput(
+                output_name="train",
+                source="/opt/ml/processing/train"
+            ),
+            ProcessingOutput(
+                output_name="validation",
+                source="/opt/ml/processing/validation"
+            ),
+            ProcessingOutput(
+                output_name="test",
+                source="/opt/ml/processing/test"
+            )
+        ],
+        code=os.path.join(BASE_DIR, "preprocess.py"),
+        arguments=["--input-data", input_data]
+    )
+
+    step_process = ProcessingStep(
+        name="PreprocessingHousingPriceData",
+        step_args=step_args
+    )
+
+    print("Preprocessing end")
+
+    ##############################################################################
+    # training step for training model
+    print("Training start")
+    model_path = f"s3://{sagemaker_session.default_bucket()}/{base_job_prefix}/HousePriceTrain"
+
+    # initialise XGBoost training algorithm
     image_uri = sagemaker.image_uris.retrieve(
         framework="xgboost",
         region=region,
@@ -191,15 +140,17 @@ def get_pipeline(
         py_version="py3",
         instance_type=training_instance_type,
     )
+    
     xgb_train = Estimator(
         image_uri=image_uri,
         instance_type=training_instance_type,
         instance_count=1,
         output_path=model_path,
-        base_job_name=f"{base_job_prefix}/housing-price-train",
+        base_job_name=f"{base_job_prefix}/house-price-train",
         sagemaker_session=pipeline_session,
-        role=role,
+        role=role
     )
+    
     xgb_train.set_hyperparameters(
         objective="reg:linear",
         num_round=50,
@@ -208,24 +159,35 @@ def get_pipeline(
         gamma=4,
         min_child_weight=6,
         subsample=0.7,
-        silent=0,
+        silent=0
     )
+    
     step_args = xgb_train.fit(
         inputs={
             "train": TrainingInput(
-      s3_data=step_process.properties.ProcessingOutputConfig.Outputs[
+                s3_data=step_process.properties.ProcessingOutputConfig.Outputs[
                     "train"
                 ].S3Output.S3Uri,
-                content_type="text/csv",
+                content_type="text/csv"
+            ),
+            "validation": TrainingInput(
+                s3_data=step_process.properties.ProcessingOutputConfig.Outputs[
+                    "validation"
+                ].S3Output.S3Uri,
+                content_type="text/csv"
             )
-        },
+        }
     )
+    
     step_train = TrainingStep(
         name="TrainHousePriceModel",
-        step_args=step_args,
+        step_args=step_args
     )
-
-    # processing step for evaluation
+    print("Training end")
+    ###############################################################################
+    # processing step for evaluating the model
+    print("Evaluation start")
+        
     script_eval = ScriptProcessor(
         image_uri=image_uri,
         command=["python3"],
@@ -233,38 +195,47 @@ def get_pipeline(
         instance_count=1,
         base_job_name=f"{base_job_prefix}/script-housing-price-eval",
         sagemaker_session=pipeline_session,
-        role=role,
+        role=role
     )
+    
     step_args = script_eval.run(
         inputs=[
             ProcessingInput(
                 source=step_train.properties.ModelArtifacts.S3ModelArtifacts,
-                destination="house-price-prediction-p-li0pqhei7lcj/sagemaker-house-price-prediction-p-li0pqhei7lcj-modelbuild/pipelines/abalone/data/model",
+                destination="/opt/ml/processing/model",
             ),
             ProcessingInput(
                 source=step_process.properties.ProcessingOutputConfig.Outputs[
                     "test"
                 ].S3Output.S3Uri,
-                destination="house-price-prediction-p-li0pqhei7lcj/sagemaker-house-price-prediction-p-li0pqhei7lcj-modelbuild/pipelines/abalone/data/test",
-            ),
+                destination="/opt/ml/processing/test"
+            )
         ],
         outputs=[
-            ProcessingOutput(output_name="evaluation", source="house-price-prediction-p-li0pqhei7lcj/sagemaker-house-price-prediction-p-li0pqhei7lcj-modelbuild/pipelines/abalone/data/evaluation"),
+            ProcessingOutput(
+                output_name="evaluation",
+                source="/opt/ml/processing/evaluation"
+            )
         ],
-        code=os.path.join(BASE_DIR, "evaluate.py"),
+        code=os.path.join(BASE_DIR, "evaluate.py")
     )
+    
     evaluation_report = PropertyFile(
-        name="EvaluationReport",
+        name="HousePriceEvaluationReport",
         output_name="evaluation",
-        path="evaluation.json",
+        path="evaluation.json"
     )
+    
     step_eval = ProcessingStep(
         name="EvaluateHousePriceModel",
         step_args=step_args,
-        property_files=[evaluation_report],
+        property_files=[evaluation_report]
     )
-
-    # register model step that will be conditionally executed
+    print("Evaluation end")
+    ##################################################################################
+    # register model to the model registry
+    print("Model register start")
+    
     model_metrics = ModelMetrics(
         model_statistics=MetricsSource(
             s3_uri="{}/evaluation.json".format(
@@ -273,13 +244,14 @@ def get_pipeline(
             content_type="application/json"
         )
     )
+    
     model = Model(
         image_uri=image_uri,
         model_data=step_train.properties.ModelArtifacts.S3ModelArtifacts,
         sagemaker_session=pipeline_session,
-        role=role,
+        role=role
     )
- 
+    
     step_args = model.register(
         content_types=["text/csv"],
         response_types=["text/csv"],
@@ -287,30 +259,34 @@ def get_pipeline(
         transform_instances=["ml.m5.large"],
         model_package_group_name=model_package_group_name,
         approval_status=model_approval_status,
-        model_metrics=model_metrics,
+        model_metrics=model_metrics
     )
+    
     step_register = ModelStep(
         name="RegisterHousePriceModel",
-        step_args=step_args,
+        step_args=step_args
     )
-
-    # condition step for evaluating model quality and branching execution
+    
+    print("Model register end")
+    ################################################################################
+    # condition step for evaluating whether the model should be registered
     cond_lte = ConditionLessThanOrEqualTo(
         left=JsonGet(
             step_name=step_eval.name,
             property_file=evaluation_report,
             json_path="regression_metrics.mse.value"
         ),
-        right=6.0,
+        right=6.0
     )
     step_cond = ConditionStep(
-        name="CheckMSEAbaloneEvaluation",
+        name="CheckMSEHousePriceEvaluation",
         conditions=[cond_lte],
         if_steps=[step_register],
-        else_steps=[],
+        else_steps=[]
     )
 
-    # pipeline instance
+    ###############################################################################
+    # initialise pipeline instance
     pipeline = Pipeline(
         name=pipeline_name,
         parameters=[
@@ -320,7 +296,7 @@ def get_pipeline(
             model_approval_status,
             input_data,
         ],
-        steps=[step_process, step_train, step_eval], #, step_cond
+        steps=[step_process, step_train, step_eval, step_cond],
         sagemaker_session=pipeline_session,
     )
     return pipeline

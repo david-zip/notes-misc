@@ -1,13 +1,13 @@
 """Evaluation script for measuring mean squared error."""
-import json
 import logging
-import pathlib
 import pickle
 import tarfile
 
 import numpy as np
 import pandas as pd
 import xgboost
+import pathlib
+import json
 
 from sklearn.metrics import mean_squared_error
 
@@ -15,10 +15,9 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
-
 if __name__ == "__main__":
     logger.debug("Starting evaluation.")
-    model_path = "house-price-prediction-p-li0pqhei7lcj/sagemaker-house-price-prediction-p-li0pqhei7lcj-modelbuild/pipelines/abalone/data/model/model.tar.gz"
+    model_path = "/opt/ml/processing/model/model.tar.gz"
     with tarfile.open(model_path) as tar:
         tar.extractall(path=".")
 
@@ -26,7 +25,7 @@ if __name__ == "__main__":
     model = pickle.load(open("xgboost-model", "rb"))
 
     logger.debug("Reading test data.")
-    test_path = "house-price-prediction-p-li0pqhei7lcj/sagemaker-house-price-prediction-p-li0pqhei7lcj-modelbuild/pipelines/abalone/data/test.csv"
+    test_path = "/opt/ml/processing/test/test.csv"
     df = pd.read_csv(test_path, header=None)
 
     logger.debug("Reading test data.")
@@ -49,7 +48,7 @@ if __name__ == "__main__":
         },
     }
 
-    output_dir = "house-price-prediction-p-li0pqhei7lcj/sagemaker-house-price-prediction-p-li0pqhei7lcj-modelbuild/pipelines/abalone/data/evaluation"
+    output_dir = "/opt/ml/processing/evaluation"
     pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     logger.info("Writing out evaluation report with mse: %f", mse)
