@@ -378,3 +378,88 @@ link: https://www.edlitera.com/en/blog/posts/aws-sagemaker-ci-cd-pipelines#mceto
 5. How to code the processing step to evaluate the models
 6. How to set registration of models
 7. How to define a condition for the model
+
+
+Chapters (Any new chapters add in red): 
+
+Introduction to MLOps (David) (Pranjal) 
+
+Introduction to MLOps Pipeline (David) (Pranjal) 
+
+Definition 
+
+Pros and cons 
+
+Machine Learning Lifecycle (David) 
+
+Machine Learning Model Training Flow (Manoj drawing) 
+
+Introduction To SageMaker (David) 
+
+How to use AWS and SageMaker (Pranjal) 
+
+S3 
+
+SageMaker 
+
+CodeCommit 
+
+How to Build Machine Learning Pipeline (David) 
+
+All the Steps   
+
+Preprocessing 
+
+Training 
+
+Algorithms 
+
+XGBoost 
+
+CatGluon 
+
+Etc.  
+
+Hyperparameter Tuning 
+
+Evaluation 
+
+Conditional 
+
+Deployment/Register 
+
+Example Code (Markdown format) + Explanation 
+
+Model Inference (Pranjal) 
+
+Model Re-Training (Pranjal) 
+
+Model confidence 
+
+Model Monitoring 
+
+Model Decay 
+
+Data Drift 
+
+Concept Drift 
+
+Overfitting 
+
+Threshold 
+
+Deployment Strategies (David) 
+
+Blue/Green Deployment 
+
+A/B Deployment 
+
+All-At-Once Deployment 
+
+Canary Deployment 
+
+Linear Deployment 
+
+In-Place Deployment 
+
+Reference 
