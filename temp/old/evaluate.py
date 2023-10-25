@@ -2,7 +2,6 @@
 import logging
 import pickle
 import tarfile
-
 import numpy as np
 import pandas as pd
 import xgboost

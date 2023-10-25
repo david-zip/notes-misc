@@ -36,6 +36,7 @@ if __name__=='__main__':
 
     # perform transformations
     logging.info('Starting transfomations')
+    raw_data = raw_data.sample(1)
     
     # seperate strings into muliple columns
     raw_data[['Airline', 'Flight code', 'Class']] = raw_data['Airline-Class'].str.split(pat=r'\n', n=-1, expand=True)
@@ -152,4 +153,3 @@ if __name__=='__main__':
     pd.DataFrame(train).to_csv(f"{BASE_DIR}/train/train.csv", header=False, index=False)
     pd.DataFrame(validation).to_csv(f"{BASE_DIR}/validation/validation.csv", header=False, index=False)
     pd.DataFrame(test).to_csv(f"{BASE_DIR}/test/test.csv", header=False, index=False)
-

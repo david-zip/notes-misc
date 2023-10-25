@@ -309,3 +309,197 @@ step_train = TrainingStep(
     step_args=step_args
 )
 ```
+
+### 6 Define an evaluating step
+
+Once the model has been trained, it is ready for evaluation. The evaluation code is written in a seperated Python file `evaluate.py` and is passed as an argument into a processing step. In the `evaluate.py`, the model and a test dataset are used as inputs, and a JSON file is produced.
+
+```py
+%%writefile evalualtion.py
+import pickle
+import tarfile
+import numpy as np
+import pandas as pd
+import xgboost
+import pathlib
+import json
+
+from sklearn.metrics import mean_squared_error
+
+# starting evaluation
+# define model path and extracting model parameters
+model_path = "/opt/ml/processing/model/model.tar.gz"
+with tarfile.open(model_path) as tar:
+    tar.extractall(path=".")
+
+# loading xgboost model
+model = pickle.load(open("xgboost-model", "rb"))
+
+# reading test data
+test_path = "/opt/ml/processing/test/test.csv"
+df = pd.read_csv(test_path, header=None)
+y_test = df.iloc[:, 0].to_numpy()
+
+# dropping target variable from test data
+df.drop(df.columns[0], axis=1, inplace=True)
+X_test = xgboost.DMatrix(df.values)
+
+# performing predictions against test data
+predictions = model.predict(X_test)
+
+# calculating mean squared error
+mse = mean_squared_error(y_test, predictions)
+std = np.std(y_test - predictions)
+report_dict = {
+    "regression_metrics": {
+        "mse": {
+            "value": mse,
+            "standard_deviation": std
+        },
+    },
+}
+
+#creating output directory
+output_dir = "/opt/ml/processing/evaluation"
+pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+# writing out evaluation report with mean square error
+evaluation_path = f"{output_dir}/evaluation.json"
+with open(evaluation_path, "w") as f:
+    f.write(json.dumps(report_dict))
+```
+
+Initialise a script processor and use it to defined a processing step for evaluation.
+
+```py
+    script_eval = ScriptProcessor(
+        image_uri=image_uri,
+        command=["python3"],
+        instance_type="ml.m5.xlarge",
+        instance_count=1,
+        base_job_name="script-housing-price-eval",
+        role=role
+    )
+
+# provide input, output paths, and code to processor instance
+step_args = script_eval.run(
+    inputs=[
+        ProcessingInput(
+            source=step_train.properties.ModelArtifacts.S3ModelArtifacts,
+            destination="/opt/ml/processing/model",
+        ),
+        ProcessingInput(
+            source=step_process.properties.ProcessingOutputConfig.Outputs[
+                "test"
+            ].S3Output.S3Uri,
+            destination="/opt/ml/processing/test"
+        )
+    ],
+    outputs=[
+        ProcessingOutput(
+            output_name="evaluation",
+            source="/opt/ml/processing/evaluation"
+        )
+    ],
+    code=os.path.join(BASE_DIR, "evaluate.py")
+)
+
+# define a property file to export evaluation results
+evaluation_report = PropertyFile(
+    name="HousePriceEvaluationReport",
+    output_name="evaluation",
+    path="evaluation.json"
+)
+
+# define processing step
+step_eval = ProcessingStep(
+    name="EvaluateHousePriceModel",
+    step_args=step_args,
+    property_files=[evaluation_report]
+) 
+```
+
+### 7 Regiseter model
+
+Next, a model package group can be generated from the trained model. A model package group is a reusable model artifacts that packages all the necessary components for inference.
+
+```py
+# define the metrics used to evaluate the model
+model_metrics = ModelMetrics(
+    model_statistics=MetricsSource(
+        s3_uri="{}/evaluation.json".format(
+            step_eval.arguments["ProcessingOutputConfig"]["Outputs"][0]["S3Output"]["S3Uri"]
+        ),
+        content_type="application/json"
+    )
+)
+
+# define the model
+model = Model(
+    image_uri=image_uri,
+    model_data=step_train.properties.ModelArtifacts.S3ModelArtifacts,
+    sagemaker_session=pipeline_session,
+    role=role
+)
+
+# define the steps to register the model
+step_args = model.register(
+    content_types=["text/csv"],
+    response_types=["text/csv"],
+    inference_instances=["ml.t2.medium", "ml.m5.large"],
+    transform_instances=["ml.m5.large"],
+    model_package_group_name=model_package_group_name,
+    approval_status=model_approval_status,
+    model_metrics=model_metrics
+)
+```
+
+### 8 Condition step to verify model accuracy
+
+A condition step can be used a to ensure only high quality models will be deployed or registered. In this example, we only want to register models that meet a certain accuracy.
+
+First, define a `ConditionLessThanOrEqualTo` condition to ensure minimum accuracy. Here, models will only pass the condition if the mean squared error is less than 6.0. Once this has been defined, the condition step can be initialised.
+
+```py
+from sagemaker.workflow.conditions import ConditionLessThanOrEqualTo
+from sagemaker.workflow.condition_step import ConditionStep
+from sagemaker.workflow.functions import JsonGet
+
+# define the condition to pass
+cond_lte = ConditionLessThanOrEqualTo(
+    left=JsonGet(
+        step_name=step_eval.name,
+        property_file=evaluation_report,
+        json_path="regression_metrics.mse.value"
+    ),
+    right=6.0
+)
+
+# define condition step
+step_cond = ConditionStep(
+    name="CheckMSEHousePriceEvaluation",
+    conditions=[cond_lte],
+    if_steps=[step_register],
+    else_steps=[]
+)
+```
+
+### 9 Create the pipeline
+
+Lastly, after all the steps have been made, they can be combined to create a pipeline.
+
+```py
+from sagemaker.workflow.pipeline import Pipeline
+
+pipeline = Pipeline(
+    name=HousePricePipeline,
+    parameters=[
+        processing_instance_count,
+        model_approval_status,
+        input_data,
+    ],
+    steps=[step_process, step_train, step_eval, step_cond]
+)
+```
+
+### 
