@@ -11,16 +11,16 @@ logger = logging.getLogger()
 
 if __name__=='__main__':
     # start preprocessing
-    logger.info('Starting preprocessing...')
+    logger.debug('Starting preprocessing...')
     
     # get arguments supplied to function
-    logger.info('Initialisng data pathway')
+    logger.debug('Initialisng data pathway')
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-data", type=str, required=True)
     args = parser.parse_args()
     
     # downloading data
-    logger.info('Downloading data')
+    logger.debug('Downloading data')
     BASE_DIR = "/opt/ml/processing"
     pathlib.Path(f"{BASE_DIR}/data").mkdir(parents=True, exist_ok=True)
     input_data = args.input_data # get input data from input data parameter
@@ -28,14 +28,14 @@ if __name__=='__main__':
     key = "/".join(input_data.split("/")[3:])
 
     # reading data
-    logger.info('Reading raw data')
+    logger.debug('Reading raw data')
     fn = f"{BASE_DIR}/data/airline_tickets.csv"
     s3 = boto3.resource("s3")
     s3.Bucket(bucket).download_file(key, fn)
     raw_data = pd.read_csv(fn)
 
     # perform transformations
-    logging.info('Starting transfomations')
+    logging.debug('Starting transfomations')
     raw_data = raw_data.sample(1)
     
     # seperate strings into muliple columns
@@ -142,14 +142,14 @@ if __name__=='__main__':
     processed_data.insert(0, 'Price', price)
     
     # complete transformation steps
-    logger.info('Completed transformations')
+    logger.debug('Completed transformations')
     
     # split data for training, validation, and testing
-    logger.info('Splitting dataset')
+    logger.debug('Splitting dataset')
     train, test, validation = np.split(processed_data, [int(0.7 * len(processed_data)), int(0.85 * len(processed_data))])
     
     # Saving dataset
-    logger.info('Saving dataset')
+    logger.debug('Saving dataset')
     pd.DataFrame(train).to_csv(f"{BASE_DIR}/train/train.csv", header=False, index=False)
     pd.DataFrame(validation).to_csv(f"{BASE_DIR}/validation/validation.csv", header=False, index=False)
     pd.DataFrame(test).to_csv(f"{BASE_DIR}/test/test.csv", header=False, index=False)
