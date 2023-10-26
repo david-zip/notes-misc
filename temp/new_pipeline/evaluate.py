@@ -4,7 +4,9 @@ import pickle
 import tarfile
 import pathlib
 import pandas as pd
+import numpy as np
 import logging
+import json
 
 from sklearn.metrics import mean_squared_error
 
@@ -24,7 +26,7 @@ if __name__=='__main__':
     df = pd.read_csv(test_path, header=None)
     y_test = df.iloc[:, 0].to_numpy()
     df.drop(df.columns[0], axis=1, inplace=True)
-    X_test = xgboost.DMatrix(df.values)
+    X_test = df.values
 
     logger.info('Performing predictions against test data.')
     predictions = model.predict(X_test)
