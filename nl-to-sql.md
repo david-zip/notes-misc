@@ -36,4 +36,3 @@ As we have our own tables, we can design the queries and answers ourselves. Usin
 Article only introduce deploying the model with langchain and showcasing it. Now indication on how it can possibly be achieved.
 
 Article asked the question of how the model will be able to accomadate more than one table (complex queries).
-
