@@ -1,6 +1,6 @@
 # How to Run a Virtual Enviroment
 
-Run `pip3 install venv` to install the virtual environment package
+Run `pip3 install virtualenv` to install the virtual environment package
 
 ## Creating Virtual Environment
 
